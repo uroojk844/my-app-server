@@ -1,49 +1,201 @@
-* {
-  margin: 0;
-  padding: 0;
-  box-sizing: border-box;
-}
-
-html,
 body {
-  height: 100%;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    margin: 0;
+    padding: 20px;
+    background: #f0f2f5;
+    color: #333;
 }
 
 main {
-  height: 100%;
-  display: grid;
-  grid-template-columns: 400px auto;
+    max-width: 1200px;
+    margin: 0 auto;
 }
 
-iframe {
-  width: 100%;
-  height: calc(100vh - 66px);
+header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
 }
 
-img {
-  width: 100%;
-  max-height: 100vh;
-  object-fit: contain;
+h1 {
+    font-size: 24px;
+    margin: 0;
+}
+
+.folder-nav ul {
+    list-style: none;
+    padding: 0;
+    display: flex;
+    gap: 15px;
+    margin: 0;
+}
+
+.folder-nav li {
+    cursor: pointer;
+    background: #e4e6eb;
+    padding: 8px 16px;
+    border-radius: 20px;
+    font-weight: 500;
+    transition: background 0.2s;
+}
+
+.folder-nav li:hover {
+    background: #d8dadf;
+}
+
+.controls {
+    display: flex;
+    gap: 10px;
+}
+
+.btn {
+    padding: 8px 16px;
+    border-radius: 6px;
+    border: none;
+    cursor: pointer;
+    font-weight: 600;
+    transition: background 0.2s;
+    text-decoration: none;
+    display: inline-block;
+}
+
+.btn-primary {
+    background: #1877f2;
+    color: white;
+}
+
+.btn-primary:hover {
+    background: #166fe5;
 }
 
 .gallery {
-  display: grid;
-  overflow: auto;
-  gap: 8px;
-  grid-row: span 2;
-
-  img {
-    width: 100%;
-    height: 100%;
-    object-fit: contain;
-    object-position: center;
-  }
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+    gap: 15px;
+    list-style: none;
+    padding: 0;
 }
 
-ul li {
-  cursor: pointer;
+.gallery-item {
+    background: white;
+    border-radius: 8px;
+    padding: 10px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.1);
+    cursor: pointer;
+    transition: transform 0.1s, box-shadow 0.1s;
+    aspect-ratio: 1;
+    justify-content: center;
+    overflow: hidden;
+    position: relative;
+    border: 1px solid #ddd;
+}
 
-  &:focus-within {
-    outline: 1px solid black;
-  }
+.gallery-item:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    border-color: #1877f2;
+}
+
+.icon {
+    font-size: 40px;
+    margin-bottom: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 80px; /* Fixed height for consistency */
+    width: 100%;
+    overflow: hidden;
+}
+
+.thumbnail {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    border-radius: 4px;
+    transition: opacity 0.3s;
+}
+
+.thumbnail.loading {
+    opacity: 0.5;
+    background: #f0f0f0;
+}
+
+.filename {
+    font-size: 12px;
+    word-break: break-all;
+    display: -webkit-box;
+    -webkit-line-clamp: 3;
+    line-clamp: 3;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+    line-height: 1.3;
+}
+
+iframe, img {
+    border-radius: 8px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+}
+
+#viewer-container {
+    display: none; /* Hidden by default */
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.9);
+    z-index: 1000;
+    justify-content: center;
+    align-items: center;
+    padding: 20px;
+    flex-direction: column;
+}
+
+#viewer-container.active {
+    display: flex;
+}
+
+#viewer-content {
+    max-width: 90%;
+    max-height: 90%;
+    background: white;
+    padding: 10px;
+    border-radius: 8px;
+    position: relative;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.5);
+}
+
+.close-btn {
+    position: absolute;
+    top: 20px;
+    right: 30px;
+    color: white;
+    font-size: 40px;
+    cursor: pointer;
+    z-index: 1001;
+    background: rgba(0,0,0,0.5);
+    width: 50px;
+    height: 50px;
+    border-radius: 50%;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    line-height: 1;
+}
+
+.close-btn:hover {
+    background: rgba(255,255,255,0.2);
+}
+
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
 }

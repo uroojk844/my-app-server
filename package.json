@@ -8,6 +8,7 @@
     "start": "node index.js"
   },
   "dependencies": {
+    "archiver": "^7.0.1",
     "body-parser": "^2.2.0",
     "cors": "^2.8.5",
     "express": "^4.21.2",

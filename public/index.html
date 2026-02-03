@@ -3,72 +3,233 @@
   <head>
     <title>Remote Agent Files</title>
     <link rel="stylesheet" href="css/style.css" />
+    <meta name="viewport" content="width=device-width, initial-scale=1">
   </head>
   <body>
     <main>
-      <ul>
-        <li onclick="loadFiles('DCIM')">DCIM</li>
-        <li onclick="loadFiles('Pictures')">Pictures</li>
-        <li onclick="loadFiles('Download')">Download</li>
-      </ul>
+        <header>
+            <h1>Remote Files</h1>
+            <div class="folder-nav">
+                <ul>
+                    <li onclick="loadFiles('DCIM')">DCIM</li>
+                    <li onclick="loadFiles('Pictures')">Pictures</li>
+                    <li onclick="loadFiles('Download')">Download</li>
+                </ul>
+            </div>
+            <div class="controls">
+                <a id="download-btn" href="#" class="btn btn-primary hidden" target="_blank">Download All (Zip)</a>
+            </div>
+        </header>
 
       <ul id="list" class="gallery"></ul>
-      <div id="viewer-container" style="margin-top: 8px;"></div>
+      <div id="sentinel" class="sentinel"></div>
+      
+      <!-- Modal Viewer -->
+      <div id="viewer-container" onclick="closeViewer(event)">
+          <div class="close-btn" onclick="closeViewer(event)">&times;</div>
+          <div id="viewer-content">
+             <!-- Content injected here -->
+          </div>
+      </div>
     </main>
 
     <script>
+      let currentFiles = [];
+      let currentPath = "";
+      let renderIndex = 0;
+      const CHUNK_SIZE = 50;
+      let observer;
+
       async function loadFiles(path) {
+        currentPath = path;
+        const list = document.getElementById("list");
+        const downloadBtn = document.getElementById("download-btn");
+        const sentinel = document.getElementById("sentinel");
+        
+        list.innerHTML = "";
+        sentinel.innerText = "Loading...";
+        currentFiles = [];
+        renderIndex = 0;
+        
+        // Hide download button initially
+        downloadBtn.classList.add('hidden');
+        downloadBtn.href = "#";
+
         try {
           const res = await fetch(
             "/files/" + encodeURIComponent(path),
           );
           if (!res.ok) {
             console.error("Fetch failed:", res.status, res.statusText);
+            sentinel.innerText = "Error loading files";
             return;
           }
           const files = await res.json();
-          console.log(path, files);
+          currentFiles = files;
+          console.log(path, files.length, "files loaded");
+          
+          if (files.length > 0) {
+              downloadBtn.classList.remove('hidden');
+              downloadBtn.href = `/download-all/${encodeURIComponent(path)}`;
+          } else {
+              sentinel.innerText = "No files found";
+          }
 
+          // Setup Intersection Observer
+          if (observer) observer.disconnect();
+          
+          observer = new IntersectionObserver((entries) => {
+              if (entries[0].isIntersecting) {
+                  renderChunk();
+              }
+          }, { rootMargin: "200px" });
+          
+          observer.observe(sentinel);
+          
+          // Initial render
+          renderChunk();
+          
+        } catch (error) {
+          console.error("Error loading files:", error);
+          sentinel.innerText = "Error: " + error.message;
+        }
+      }
+      
+      function closeViewer(event) {
+          // If triggered by click, ensure it's the background or close button
+          if (event) {
+              const target = event.target;
+              if (target.id !== "viewer-container" && !target.classList.contains("close-btn")) {
+                  return;
+              }
+          }
+          
+          const viewerContainer = document.getElementById("viewer-container");
+          viewerContainer.classList.remove("active");
+          const viewerContent = document.getElementById("viewer-content");
+          viewerContent.innerHTML = ""; // Stop videos/iframes
+      }
+
+      function renderChunk() {
           const list = document.getElementById("list");
-          const viewer = document.getElementById("viewer");
-          list.innerHTML = "";
+          const sentinel = document.getElementById("sentinel");
+          
+          if (renderIndex >= currentFiles.length) {
+              sentinel.innerText = currentFiles.length > 0 ? "End of list" : "No files";
+              return;
+          }
 
-          files.forEach((f) => {
-            const a = document.createElement("button");
-            let url = `/file/view/${encodeURIComponent(path)}/${encodeURIComponent(f)}`;
-            a.innerText = `${f}`;
+          const end = Math.min(renderIndex + CHUNK_SIZE, currentFiles.length);
+          const chunk = currentFiles.slice(renderIndex, end);
+          
+          const fragment = document.createDocumentFragment();
+          
+          chunk.forEach((f) => {
+            const li = document.createElement("li");
+            li.className = "gallery-item";
+            
+            const lowerF = f.toLowerCase();
+            const url = `/file/view/${encodeURIComponent(currentPath)}/${encodeURIComponent(f)}`;
+            
+            // Determine content
+            let iconHtml = "";
+            let isImage = false;
+            
+            if (lowerF.match(/\.(jpg|jpeg|png|gif|webp|svg)$/)) {
+                isImage = true;
+                iconHtml = `<img src="${url}" class="thumbnail" loading="lazy" alt="${f}" onerror="this.onerror=null;this.parentNode.innerHTML='🖼️';">`;
+            } else if (lowerF.endsWith(".pdf")) {
+                iconHtml = "📕";
+            } else if (lowerF.match(/\.(mp4|mov|avi|mkv)$/)) {
+                iconHtml = "🎬";
+            } else if (lowerF.match(/\.(mp3|wav|ogg)$/)) {
+                iconHtml = "🎵";
+            } else {
+                iconHtml = "📄";
+            }
+            
+            // If it's not an image (just text/emoji), wrap it in div for styling
+            if (!isImage) {
+                iconHtml = `<div style="font-size: 40px;">${iconHtml}</div>`;
+            }
+
+            li.innerHTML = `
+                <div class="icon">${iconHtml}</div>
+                <div class="filename">${f}</div>
+            `;
             
             const showFile = () => {
               const viewerContainer = document.getElementById("viewer-container");
-              viewerContainer.innerHTML = ""; // Clear previous
+              const viewerContent = document.getElementById("viewer-content");
               
+              viewerContainer.classList.add("active");
+              
+              // Loading state
+              viewerContent.innerHTML = `
+                  <div id="loader" style="padding: 20px; text-align: center;">
+                      <div class="spinner" style="border: 4px solid #f3f3f3; border-top: 4px solid #3498db; border-radius: 50%; width: 30px; height: 30px; animation: spin 1s linear infinite; margin: 0 auto;"></div>
+                      <p style="margin-top: 10px; color: #666;">Retrieving file...</p>
+                  </div>
+              `;
+              
+              // Helper to switch to content
+              const showContent = (element) => {
+                  element.style.width = "100%";
+                  
+                  // Specific styling per type
+                  if (element.tagName === "IFRAME") {
+                      element.style.height = "80vh";
+                      element.style.width = "80vw";    
+                      element.style.border = "none";
+                  } else if (element.tagName === "IMG") {
+                      element.style.maxWidth = "100%";
+                      element.style.maxHeight = "85vh";
+                      element.style.objectFit = "contain";
+                  }
+                  
+                  viewerContent.innerHTML = "";
+                  viewerContent.appendChild(element);
+              };
+              
+              // Helper for error
+              const showError = () => {
+                  viewerContent.innerHTML = `<p style="color: red; padding: 20px;">Failed to load file.</p>`;
+              };
+
               const lowerF = f.toLowerCase();
+              let element;
+              
               if (lowerF.endsWith(".pdf")) {
-                  const iframe = document.createElement("iframe");
-                  iframe.src = url;
-                  iframe.style.border = "none";
-                  viewerContainer.appendChild(iframe);
+                  element = document.createElement("iframe");
+                  element.onload = () => showContent(element);
+                  element.onerror = showError;
               } else if (lowerF.match(/\.(jpg|jpeg|png|gif|webp|svg)$/)) {
-                  const img = document.createElement("img");
-                  img.src = url;
-                  img.style.maxWidth = "100%";
-                  viewerContainer.appendChild(img);
+                  element = document.createElement("img");
+                  element.onload = () => showContent(element);
+                  element.onerror = showError;
               } else {
-                  // Fallback for other types (maybe just a download link or generic iframe)
-                  const iframe = document.createElement("iframe");
-                  iframe.src = url;
-                  iframe.style.border = "none";
-                  viewerContainer.appendChild(iframe);
+                  // Fallback
+                  element = document.createElement("iframe");
+                  element.onload = () => showContent(element);
+                  element.onerror = showError;
               }
+              
+              // Set src AFTER handlers
+              element.src = url;
             };
 
-            a.onclick = showFile;
-            a.onfocus = showFile;
-            list.appendChild(a);
+            li.onclick = showFile;
+            fragment.appendChild(li);
           });
-        } catch (error) {
-          console.error("Error loading files:", error);
-        }
+          
+          list.appendChild(fragment);
+          renderIndex = end;
+          
+          if (renderIndex >= currentFiles.length) {
+              sentinel.innerText = "End of list";
+          } else {
+              sentinel.innerText = "Loading more...";
+          }
       }
     </script>
   </body>
