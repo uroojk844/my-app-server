@@ -1,0 +1,75 @@
+<!doctype html>
+<html>
+  <head>
+    <title>Remote Agent Files</title>
+    <link rel="stylesheet" href="css/style.css" />
+  </head>
+  <body>
+    <main>
+      <ul>
+        <li onclick="loadFiles('DCIM')">DCIM</li>
+        <li onclick="loadFiles('Pictures')">Pictures</li>
+        <li onclick="loadFiles('Download')">Download</li>
+      </ul>
+
+      <ul id="list" class="gallery"></ul>
+      <div id="viewer-container" style="margin-top: 8px;"></div>
+    </main>
+
+    <script>
+      async function loadFiles(path) {
+        try {
+          const res = await fetch(
+            "/files/" + encodeURIComponent(path),
+          );
+          if (!res.ok) {
+            console.error("Fetch failed:", res.status, res.statusText);
+            return;
+          }
+          const files = await res.json();
+          console.log(path, files);
+
+          const list = document.getElementById("list");
+          const viewer = document.getElementById("viewer");
+          list.innerHTML = "";
+
+          files.forEach((f) => {
+            const a = document.createElement("button");
+            let url = `/file/view/${encodeURIComponent(path)}/${encodeURIComponent(f)}`;
+            a.innerText = `${f}`;
+            
+            const showFile = () => {
+              const viewerContainer = document.getElementById("viewer-container");
+              viewerContainer.innerHTML = ""; // Clear previous
+              
+              const lowerF = f.toLowerCase();
+              if (lowerF.endsWith(".pdf")) {
+                  const iframe = document.createElement("iframe");
+                  iframe.src = url;
+                  iframe.style.border = "none";
+                  viewerContainer.appendChild(iframe);
+              } else if (lowerF.match(/\.(jpg|jpeg|png|gif|webp|svg)$/)) {
+                  const img = document.createElement("img");
+                  img.src = url;
+                  img.style.maxWidth = "100%";
+                  viewerContainer.appendChild(img);
+              } else {
+                  // Fallback for other types (maybe just a download link or generic iframe)
+                  const iframe = document.createElement("iframe");
+                  iframe.src = url;
+                  iframe.style.border = "none";
+                  viewerContainer.appendChild(iframe);
+              }
+            };
+
+            a.onclick = showFile;
+            a.onfocus = showFile;
+            list.appendChild(a);
+          });
+        } catch (error) {
+          console.error("Error loading files:", error);
+        }
+      }
+    </script>
+  </body>
+</html>
