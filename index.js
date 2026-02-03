@@ -21,40 +21,50 @@ let agentSocket = null;
 const UPLOAD_DIR = path.join(__dirname, "uploads");
 if (!fs.existsSync(UPLOAD_DIR)) fs.mkdirSync(UPLOAD_DIR);
 
-// WebSocket server
-const wss = new WebSocket.Server({ port: 8081 });
+// WebSocket server (will be attached later)
+let wss;
+
 
 const tempDirFiles = {};
 
-wss.on("connection", (ws) => {
-    console.log("Agent connected via WebSocket");
-    agentSocket = ws;
+// Moved WS setup to be wrapped in a function or initialized after server starts
+// ... actually, we can just define the behavior here but init the server later.
+// Let's refactor slightly to keep the logic clean.
 
-    ws.on("message", (message) => {
-        const data = JSON.parse(message);
-        console.log("Received WS message:", data);
+const setupWebSocket = (server) => {
+    wss = new WebSocket.Server({ server });
 
-        if (data.type === "file") {
-            const safeName = data.path.replace(/[\/\\]/g, "_");
-            const savePath = path.join(UPLOAD_DIR, safeName);
-            const buffer = Buffer.from(data.content, "base64");
-            fs.writeFileSync(savePath, buffer);
-            console.log(`Received file: ${safeName}`);
-        }
+    wss.on("connection", (ws) => {
+        console.log("Agent connected via WebSocket");
+        agentSocket = ws;
 
-        if (data.type === "dir_list") {
-            const dir = data.dir;
-            const files = data.files; // array of filenames
-            tempDirFiles[dir] = files; // store globally
-            console.log(`Received files for ${dir}: ${files.length}`);
-        }
+        ws.on("message", (message) => {
+            const data = JSON.parse(message);
+            console.log("Received WS message:", data);
+
+            if (data.type === "file") {
+                const safeName = data.path.replace(/[\/\\]/g, "_");
+                const savePath = path.join(UPLOAD_DIR, safeName);
+                const buffer = Buffer.from(data.content, "base64");
+                fs.writeFileSync(savePath, buffer);
+                console.log(`Received file: ${safeName}`);
+            }
+
+            if (data.type === "dir_list") {
+                const dir = data.dir;
+                const files = data.files; // array of filenames
+                tempDirFiles[dir] = files; // store globally
+                console.log(`Received files for ${dir}: ${files.length}`);
+            }
+        });
+
+        ws.on("close", () => {
+            console.log("Agent disconnected");
+            agentSocket = null;
+        });
     });
+};
 
-    ws.on("close", () => {
-        console.log("Agent disconnected");
-        agentSocket = null;
-    });
-});
 
 // Agent uploads file list
 app.post("/upload-files", (req, res) => {
@@ -135,8 +145,12 @@ app.get("/file/view/:dir/:filename", async (req, res) => {
     });
 });
 
-const PORT = 3000;
-app.listen(PORT, () => {
-    console.log(`Node server running at http://localhost:${PORT}`);
-    console.log(`WebSocket listening on ws://localhost:8081`);
+const PORT = process.env.PORT || 3000;
+const server = app.listen(PORT, "0.0.0.0", () => {
+    console.log(`Node server running at http://0.0.0.0:${PORT}`);
+    console.log(`WebSocket sharing same port: ws://0.0.0.0:${PORT}`);
 });
+
+// Attach WebSocket to the same server instance
+setupWebSocket(server);
+
